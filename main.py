@@ -2,16 +2,14 @@ import os
 import sys
 import textwrap
 import traceback
+import faulthandler
+
+BASE = os.environ.get("ANDROID_PRIVATE", ".")
+NATIVE = os.path.join(BASE, "native.log")
+SEEN = []
 
 
-def save_log(tb):
-    base = os.environ.get("ANDROID_PRIVATE", ".")
-    f = open(os.path.join(base, "crash.log"), "w")
-    f.write(tb)
-    f.close()
-
-
-def show_error(tb):
+def show_text(text):
     import pygame
     if not pygame.get_init():
         pygame.init()
@@ -19,11 +17,10 @@ def show_error(tb):
     if screen is None:
         screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
     w, h = screen.get_size()
-    size = max(14, w // 34)
-    font = pygame.font.Font(None, size)
+    font = pygame.font.Font(None, max(14, w // 34))
     chars = max(10, int(w / (font.size("M")[0] * 0.6)))
-    lines = ["GAME CRASHED - screenshot this", ""]
-    for raw in tb.splitlines():
+    lines = ["DEBUG INFO - screenshot this", ""]
+    for raw in text.splitlines():
         lines.extend(textwrap.wrap(raw, chars) or [""])
     line_h = font.get_linesize()
     offset = 0
@@ -31,8 +28,6 @@ def show_error(tb):
     clock = pygame.time.Clock()
     while True:
         for e in pygame.event.get():
-            if e.type == pygame.QUIT:
-                return
             if e.type == pygame.MOUSEMOTION and e.buttons[0]:
                 offset = min(max(0, offset - e.rel[1]), max_off)
         screen.fill((20, 0, 0))
@@ -48,14 +43,41 @@ def show_error(tb):
         clock.tick(30)
 
 
+def start_spy():
+    import pygame
+    original = pygame.event.get
+
+    def spy(*args, **kwargs):
+        events = original(*args, **kwargs)
+        for e in events:
+            if len(SEEN) < 40:
+                SEEN.append(pygame.event.event_name(e.type))
+        return events
+
+    pygame.event.get = spy
+
+
+# 1) If the last run crashed natively, show that first.
+old = ""
+if os.path.exists(NATIVE):
+    old = open(NATIVE).read()
+if old.strip():
+    open(NATIVE, "w").close()
+    show_text("LAST RUN CRASHED:\n" + old)
+
+# 2) Watch for native crashes during this run.
+native_file = open(NATIVE, "w")
+faulthandler.enable(file=native_file, all_threads=True)
+
+# 3) Run the game and report how it ended.
+result = ""
 try:
+    start_spy()
     import game
+    result = "Game ended normally (no error)."
 except SystemExit:
-    pass
+    result = "Game called exit (SystemExit)."
 except BaseException:
-    tb = traceback.format_exc()
-    try:
-        save_log(tb)
-    except Exception:
-        pass
-    show_error(tb)
+    result = traceback.format_exc()
+
+show_text(result + "\n\nEvents seen: " + ", ".join(SEEN))
