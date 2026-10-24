@@ -43,6 +43,27 @@ def show_text(text):
         clock.tick(30)
 
 
+def describe(mod):
+    lines = ["Game ended normally (no error)."]
+    path = getattr(mod, "__file__", None)
+    lines.append("game file: " + str(path))
+    try:
+        data = open(path).read()
+        lines.append("size: " + str(len(data)) + " chars, " + str(len(data.splitlines())) + " lines")
+        lines.append("last line: " + data.strip().splitlines()[-1])
+    except Exception as e:
+        lines.append("could not read game file: " + repr(e))
+    lines.append("has running var: " + str(hasattr(mod, "running")))
+    lines.append("running = " + str(getattr(mod, "running", "n/a")))
+    lines.append("state = " + str(getattr(mod, "state", "n/a")))
+    lines.append("cwd: " + os.getcwd())
+    try:
+        lines.append("files: " + ", ".join(sorted(os.listdir(os.getcwd()))))
+    except Exception as e:
+        lines.append("listdir failed: " + repr(e))
+    return "\n".join(lines)
+
+
 def start_spy():
     import pygame
     original = pygame.event.get
@@ -74,7 +95,7 @@ result = ""
 try:
     start_spy()
     import game
-    result = "Game ended normally (no error)."
+    result = describe(game)
 except SystemExit:
     result = "Game called exit (SystemExit)."
 except BaseException:
