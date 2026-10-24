@@ -17,7 +17,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Fix Git Directory Permissions
-        run: git config --global --add safe.directory /__w/Piano-tiles-/Piano-tiles-
+        run: git config --global --add safe.directory '*'
 
       - name: Build APK with Buildozer
         run: buildozer -v android debug
