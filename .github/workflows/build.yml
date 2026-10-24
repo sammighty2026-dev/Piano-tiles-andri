@@ -24,8 +24,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y git zip unzip autoconf automake libtool \
-            pkg-config zlib1g-dev libncurses-dev cmake libffi-dev libssl-dev \
-            build-essential ccache
+            libltdl-dev pkg-config zlib1g-dev libncurses-dev cmake \
+            libffi-dev libssl-dev build-essential ccache
 
       - name: Install Buildozer
         run: |
@@ -41,7 +41,20 @@ jobs:
           key: buildozer-${{ hashFiles('buildozer.spec') }}
 
       - name: Build APK
-        run: buildozer -v android debug
+        run: |
+          set -o pipefail
+          buildozer -v android debug 2>&1 | tee build.log
+
+      - name: Show error summary
+        if: failure()
+        run: |
+          LN=$(grep -n "Command failed" build.log | head -1 | cut -d: -f1)
+          if [ -n "$LN" ]; then
+            START=$((LN-40)); [ $START -lt 1 ] && START=1
+            sed -n "${START},${LN}p" build.log
+          else
+            tail -n 60 build.log
+          fi
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
