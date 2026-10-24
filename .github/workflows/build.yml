@@ -8,21 +8,35 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    container:
-      image: kivy/buildozer:latest
-      options: --user root
 
     steps:
-      - name: Checkout repository
+      - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Fix Git Directory Permissions
-        run: git config --global --add safe.directory '*'
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
 
-      - name: Build APK with Buildozer
-        run: buildozer -v android debug
+      - name: Install System Dependencies
+        run: |
+          sudo dpkg --add-architecture i386
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential ccache git libncurses5:i386 libstdc++6:i386 \
+            python3-dev autoconf libtool pkg-config zlib1g-dev libltdl-dev
 
-      - name: Upload APK artifact
+      - name: Install Buildozer and Cython
+        run: |
+          pip install --upgrade pip
+          pip install --user cython==0.29.36 buildozer
+
+      - name: Build APK
+        run: |
+          export PATH=$HOME/.local/bin:$PATH
+          buildozer -v android debug
+
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: package-apk
