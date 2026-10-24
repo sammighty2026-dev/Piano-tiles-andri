@@ -5,7 +5,7 @@ package.domain = org.example
 source.dir = .
 source.include_exts = py,png,jpg,ttf,wav,ogg
 version = 1.0
-requirements = python3,pygame==2.1.0
+requirements = python3,pygame==2.6.1
 orientation = portrait
 fullscreen = 1
 android.api = 33
