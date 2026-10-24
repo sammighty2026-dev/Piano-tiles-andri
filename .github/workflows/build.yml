@@ -30,7 +30,10 @@ jobs:
       - name: Install Buildozer
         run: |
           pip install --upgrade pip setuptools wheel
-          pip install buildozer "cython<3"
+          pip install buildozer "cython<3" pillow
+
+      - name: Make icons
+        run: python make_icon.py
 
       - name: Cache Buildozer
         uses: actions/cache@v4
