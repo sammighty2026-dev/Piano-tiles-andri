@@ -458,3 +458,503 @@ def draw_menu():
     active_hs = highscore if game_mode == "classic" else highscore_ta
     best = small_font.render(f"Best ({game_mode.title()}): {active_hs}", True, GOLD)
     screen.blit(best, (WIDTH // 2 - best.get_width() // 2, HEIGHT * 0.92))
+    def draw_settings():
+    screen.fill((18, 18, 28))
+    title = title_font.render("SETTINGS", True, WHITE)
+    screen.blit(title, (WIDTH // 2 - title.get_width() // 2, HEIGHT * 0.04))
+
+    rects = get_button_rects()
+
+    toggle_color = (50, 180, 100) if audio_enabled else (180, 50, 50)
+    pygame.draw.rect(screen, toggle_color, rects["audio_toggle"], border_radius=14)
+    pygame.draw.rect(screen, WHITE, rects["audio_toggle"], 2, border_radius=14)
+    audio_text = small_font.render("Sound: ON" if audio_enabled else "Sound: OFF", True, WHITE)
+    screen.blit(audio_text, (rects["audio_toggle"].centerx - audio_text.get_width() // 2,
+                             rects["audio_toggle"].centery - audio_text.get_height() // 2))
+
+    pygame.draw.rect(screen, (80, 120, 200), rects["sfx_vol"], border_radius=14)
+    pygame.draw.rect(screen, WHITE, rects["sfx_vol"], 2, border_radius=14)
+    sfx_text = small_font.render(f"SFX Volume: {int(sfx_volume*100)}%", True, WHITE)
+    screen.blit(sfx_text, (rects["sfx_vol"].centerx - sfx_text.get_width() // 2,
+                           rects["sfx_vol"].centery - sfx_text.get_height() // 2))
+
+    pygame.draw.rect(screen, (80, 120, 200), rects["bg_vol"], border_radius=14)
+    pygame.draw.rect(screen, WHITE, rects["bg_vol"], 2, border_radius=14)
+    bg_text = small_font.render(f"BG Volume: {int(bg_volume*100)}%", True, WHITE)
+    screen.blit(bg_text, (rects["bg_vol"].centerx - bg_text.get_width() // 2,
+                          rects["bg_vol"].centery - bg_text.get_height() // 2))
+
+    pygame.draw.rect(screen, (80, 120, 200), rects["scale_toggle"], border_radius=14)
+    pygame.draw.rect(screen, WHITE, rects["scale_toggle"], 2, border_radius=14)
+    scale_text = small_font.render(f"Scale: {scale_names[scale_mode]}", True, WHITE)
+    screen.blit(scale_text, (rects["scale_toggle"].centerx - scale_text.get_width() // 2,
+                             rects["scale_toggle"].centery - scale_text.get_height() // 2))
+
+    pygame.draw.rect(screen, (150, 80, 200), rects["achievements_btn"], border_radius=14)
+    pygame.draw.rect(screen, WHITE, rects["achievements_btn"], 2, border_radius=14)
+    ach_text = small_font.render("Achievements", True, WHITE)
+    screen.blit(ach_text, (rects["achievements_btn"].centerx - ach_text.get_width() // 2,
+                           rects["achievements_btn"].centery - ach_text.get_height() // 2))
+
+    pygame.draw.rect(screen, (50, 150, 180), rects["stats_btn"], border_radius=14)
+    pygame.draw.rect(screen, WHITE, rects["stats_btn"], 2, border_radius=14)
+    stats_btn_text = small_font.render("Lifetime Stats", True, WHITE)
+    screen.blit(stats_btn_text, (rects["stats_btn"].centerx - stats_btn_text.get_width() // 2,
+                                 rects["stats_btn"].centery - stats_btn_text.get_height() // 2))
+
+    pygame.draw.rect(screen, (180, 60, 60), rects["reset_score"], border_radius=14)
+    pygame.draw.rect(screen, WHITE, rects["reset_score"], 2, border_radius=14)
+    reset_text = small_font.render("Reset Progress", True, WHITE)
+    screen.blit(reset_text, (rects["reset_score"].centerx - reset_text.get_width() // 2,
+                             rects["reset_score"].centery - reset_text.get_height() // 2))
+
+    pygame.draw.rect(screen, (70, 70, 90), rects["settings_back"], border_radius=14)
+    pygame.draw.rect(screen, WHITE, rects["settings_back"], 2, border_radius=14)
+    back_text = small_font.render("Back", True, WHITE)
+    screen.blit(back_text, (rects["settings_back"].centerx - back_text.get_width() // 2,
+                            rects["settings_back"].centery - back_text.get_height() // 2))
+
+def draw_achievements():
+    screen.fill((18, 18, 28))
+    title = title_font.render("ACHIEVEMENTS", True, GOLD)
+    screen.blit(title, (WIDTH // 2 - title.get_width() // 2, HEIGHT * 0.04))
+
+    start_y = int(HEIGHT * 0.12)
+    box_h = int(HEIGHT * 0.075)
+    gap = int(HEIGHT * 0.012)
+
+    for i, (k, ach) in enumerate(achievements.items()):
+        y = start_y + i * (box_h + gap)
+        if y + box_h > HEIGHT * 0.85:
+            break
+        rect = pygame.Rect(int(WIDTH * 0.08), y, int(WIDTH * 0.84), box_h)
+        bg_col = (40, 70, 50) if ach["unlocked"] else (40, 40, 55)
+        pygame.draw.rect(screen, bg_col, rect, border_radius=12)
+        border_col = GOLD if ach["unlocked"] else (100, 100, 120)
+        pygame.draw.rect(screen, border_col, rect, 2, border_radius=12)
+
+        status = "[OK] " if ach["unlocked"] else "[  ] "
+        name_surf = small_font.render(status + ach["name"], True, WHITE if ach["unlocked"] else (150, 150, 170))
+        screen.blit(name_surf, (rect.x + 15, rect.y + 8))
+        desc_surf = small_font.render(ach["desc"], True, (180, 180, 200))
+        screen.blit(desc_surf, (rect.x + 15, rect.y + 32))
+
+    rects = get_button_rects()
+    pygame.draw.rect(screen, (70, 70, 90), rects["achievements_back"], border_radius=14)
+    pygame.draw.rect(screen, WHITE, rects["achievements_back"], 2, border_radius=14)
+    back_text = medium_font.render("Back", True, WHITE)
+    screen.blit(back_text, (rects["achievements_back"].centerx - back_text.get_width() // 2,
+                            rects["achievements_back"].centery - back_text.get_height() // 2))
+
+def draw_stats():
+    screen.fill((18, 18, 28))
+    title = title_font.render("LIFETIME STATS", True, GOLD)
+    screen.blit(title, (WIDTH // 2 - title.get_width() // 2, HEIGHT * 0.08))
+
+    stat_items = [
+        ("Games Played", str(stats["games_played"])),
+        ("Tiles Hit", str(stats["tiles_hit"])),
+        ("Lifetime Score", str(stats["lifetime_score"])),
+        ("Golden Tiles", str(stats["golden_hit"])),
+        ("Best Combo", str(stats["best_combo"]))
+    ]
+
+    start_y = int(HEIGHT * 0.20)
+    box_h = int(HEIGHT * 0.09)
+    gap = int(HEIGHT * 0.02)
+
+    for i, (label, val) in enumerate(stat_items):
+        y = start_y + i * (box_h + gap)
+        rect = pygame.Rect(int(WIDTH * 0.1), y, int(WIDTH * 0.8), box_h)
+        pygame.draw.rect(screen, (40, 40, 55), rect, border_radius=14)
+        pygame.draw.rect(screen, (80, 120, 200), rect, 2, border_radius=14)
+        lbl = small_font.render(label, True, (180, 180, 200))
+        screen.blit(lbl, (rect.x + 20, rect.y + 12))
+        val_s = medium_font.render(val, True, GOLD)
+        screen.blit(val_s, (rect.x + 20, rect.y + 40))
+
+    rects = get_button_rects()
+    pygame.draw.rect(screen, (70, 70, 90), rects["stats_back"], border_radius=14)
+    pygame.draw.rect(screen, WHITE, rects["stats_back"], 2, border_radius=14)
+    back_text = medium_font.render("Back", True, WHITE)
+    screen.blit(back_text, (rects["stats_back"].centerx - back_text.get_width() // 2,
+                            rects["stats_back"].centery - back_text.get_height() // 2))
+
+def draw_game():
+    global shake_timer
+    theme = themes[current_theme]
+    active_bg = get_dynamic_background(theme["bg"], score)
+
+    canvas = pygame.Surface((WIDTH, HEIGHT))
+    canvas.fill(active_bg)
+
+    for i in range(1, COLS):
+        pygame.draw.line(canvas, theme["line"], (i * COL_WIDTH, 0), (i * COL_WIDTH, HEIGHT), 2)
+
+    for tile in tiles:
+        x = tile["col"] * COL_WIDTH + (COL_WIDTH - TILE_WIDTH) // 2
+        t_color = GOLD if tile.get("golden") else theme["tile"]
+        pygame.draw.rect(canvas, t_color, (x, tile["y"], TILE_WIDTH, TILE_HEIGHT - 8), border_radius=14)
+        if tile.get("golden"):
+            pygame.draw.rect(canvas, WHITE, (x + 6, tile["y"] + 6, TILE_WIDTH - 12, 6), border_radius=4)
+
+    for p in particles:
+        size = max(1, int(p["size"] * (p["life"] / p["max_life"])))
+        pygame.draw.circle(canvas, p["color"], (int(p["x"]), int(p["y"])), size)
+
+    for ft in floating_texts:
+        txt = small_font.render(ft["text"], True, ft["color"])
+        canvas.blit(txt, (ft["x"] - txt.get_width() // 2, ft["y"]))
+
+    for r in ripples:
+        surf = pygame.Surface((r["radius"] * 2, r["radius"] * 2), pygame.SRCALPHA)
+        pygame.draw.circle(surf, (255, 255, 255, max(0, r["alpha"])), (r["radius"], r["radius"]), r["radius"], 3)
+        canvas.blit(surf, (r["x"] - r["radius"], r["y"] - r["radius"]))
+
+    score_text = font.render(f"{score}", True, theme["text"])
+    canvas.blit(score_text, (WIDTH // 2 - score_text.get_width() // 2, 18))
+
+    if game_mode == "classic":
+        shield_str = "SHIELD: ON" if has_shield else "SHIELD: BROKEN"
+        shield_color = (100, 220, 100) if has_shield else (140, 140, 140)
+        shield_text = small_font.render(shield_str, True, shield_color)
+        canvas.blit(shield_text, (WIDTH // 2 - shield_text.get_width() // 2, 18 + int(HEIGHT * 0.04)))
+    else:
+        timer_color = RED if time_left <= 10 else GOLD
+        timer_text = small_font.render(f"Time: {max(0, int(time_left))}s", True, timer_color)
+        canvas.blit(timer_text, (WIDTH // 2 - timer_text.get_width() // 2, 18 + int(HEIGHT * 0.04)))
+
+    if combo >= 2:
+        combo_color = GOLD if combo >= 10 else theme["text"]
+        combo_text = small_font.render(f"Combo x{combo}", True, combo_color)
+        canvas.blit(combo_text, (WIDTH // 2 - combo_text.get_width() // 2, 18 + int(HEIGHT * 0.08)))
+
+    diff_text = small_font.render(diff_names[difficulty], True, (180, 180, 200))
+    canvas.blit(diff_text, (15, 18))
+
+    p_rect = get_button_rects()["pause_btn"]
+    pygame.draw.rect(canvas, theme["tile"], p_rect, border_radius=10)
+    pygame.draw.rect(canvas, WHITE, p_rect, 2, border_radius=10)
+    pygame.draw.rect(canvas, WHITE, (p_rect.centerx - 6, p_rect.centery - 8, 3, 16))
+    pygame.draw.rect(canvas, WHITE, (p_rect.centerx + 3, p_rect.centery - 8, 3, 16))
+
+    if state == "paused":
+        overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 180))
+        canvas.blit(overlay, (0, 0))
+        paused_title = big_font.render("PAUSED", True, WHITE)
+        canvas.blit(paused_title, (WIDTH // 2 - paused_title.get_width() // 2, HEIGHT // 2 - 160))
+
+        rects = get_button_rects()
+        pygame.draw.rect(canvas, (50, 180, 100), rects["resume"], border_radius=14)
+        pygame.draw.rect(canvas, WHITE, rects["resume"], 2, border_radius=14)
+        res = medium_font.render("Resume", True, WHITE)
+        canvas.blit(res, (rects["resume"].centerx - res.get_width() // 2, rects["resume"].centery - res.get_height() // 2))
+
+        pygame.draw.rect(canvas, (200, 140, 40), rects["restart"], border_radius=14)
+        pygame.draw.rect(canvas, WHITE, rects["restart"], 2, border_radius=14)
+        rst = medium_font.render("Restart", True, WHITE)
+        canvas.blit(rst, (rects["restart"].centerx - rst.get_width() // 2, rects["restart"].centery - rst.get_height() // 2))
+
+        pygame.draw.rect(canvas, (180, 50, 50), rects["home"], border_radius=14)
+        pygame.draw.rect(canvas, WHITE, rects["home"], 2, border_radius=14)
+        home = medium_font.render("Home", True, WHITE)
+        canvas.blit(home, (rects["home"].centerx - home.get_width() // 2, rects["home"].centery - home.get_height() // 2))
+
+    elif state == "game_over":
+        overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 220))
+        canvas.blit(overlay, (0, 0))
+
+        over_title = "TIME'S UP!" if game_mode == "time_attack" else "GAME OVER"
+        over = big_font.render(over_title, True, RED)
+        canvas.blit(over, (WIDTH // 2 - over.get_width() // 2, int(HEIGHT * 0.20)))
+
+        final = font.render(f"Final Score: {score}", True, WHITE)
+        canvas.blit(final, (WIDTH // 2 - final.get_width() // 2, int(HEIGHT * 0.32)))
+
+        check_hs = highscore if game_mode == "classic" else highscore_ta
+        if score >= check_hs and score > 0:
+            new_best = font.render("NEW BEST!", True, GOLD)
+            canvas.blit(new_best, (WIDTH // 2 - new_best.get_width() // 2, int(HEIGHT * 0.40)))
+
+        btn_w, btn_h = int(WIDTH * 0.58), int(HEIGHT * 0.065)
+        cx = WIDTH // 2
+        replay_rect = pygame.Rect(cx - btn_w // 2, int(HEIGHT * 0.52), btn_w, btn_h)
+        home_rect = pygame.Rect(cx - btn_w // 2, int(HEIGHT * 0.62), btn_w, btn_h)
+
+        pygame.draw.rect(canvas, (50, 180, 100), replay_rect, border_radius=14)
+        pygame.draw.rect(canvas, WHITE, replay_rect, 2, border_radius=14)
+        rep = medium_font.render("Replay", True, WHITE)
+        canvas.blit(rep, (replay_rect.centerx - rep.get_width() // 2, replay_rect.centery - rep.get_height() // 2))
+
+        pygame.draw.rect(canvas, (180, 50, 50), home_rect, border_radius=14)
+        pygame.draw.rect(canvas, WHITE, home_rect, 2, border_radius=14)
+        home = medium_font.render("Home", True, WHITE)
+        canvas.blit(home, (home_rect.centerx - home.get_width() // 2, home_rect.centery - home.get_height() // 2))
+
+    shake_x = shake_y = 0
+    if shake_timer > 0:
+        shake_x = random.randint(-6, 6)
+        shake_y = random.randint(-6, 6)
+        shake_timer -= 1
+
+    screen.blit(canvas, (shake_x, shake_y))
+    # ========== MAIN LOOP ==========
+running = True
+while running:
+    dt = clock.tick(60) / 1000.0
+
+    if state == "playing" and game_mode == "time_attack":
+        time_left -= dt
+        time_survived += dt
+        if time_left <= 0:
+            end_game()
+
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+        if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+            if state == "playing":
+                state = "paused"
+                stop_bg()
+            elif state == "paused":
+                state = "playing"
+                play_bg()
+            elif state in ["settings", "achievements", "stats"]:
+                state = "menu"
+            else:
+                running = False
+
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            mx, my = event.pos
+            spawn_ripple(mx, my)
+            rects = get_button_rects()
+
+            if state == "menu":
+                if rects["mode_toggle"].collidepoint(mx, my):
+                    game_mode = "time_attack" if game_mode == "classic" else "classic"
+                elif rects["diff_toggle"].collidepoint(mx, my):
+                    difficulty = (difficulty + 1) % 4
+                else:
+                    button_h = int(HEIGHT * 0.055)
+                    start_y = int(HEIGHT * 0.35)
+                    gap = int(HEIGHT * 0.012)
+                    theme_clicked = False
+                    for i in range(len(themes)):
+                        y = start_y + i * (button_h + gap)
+                        rect = pygame.Rect(int(WIDTH * 0.18), y, int(WIDTH * 0.64), button_h)
+                        if rect.collidepoint(mx, my):
+                            current_theme = i
+                            start_game()
+                            theme_clicked = True
+                            break
+                    if not theme_clicked and rects["settings_btn"].collidepoint(mx, my):
+                        state = "settings"
+
+            elif state == "settings":
+                if rects["audio_toggle"].collidepoint(mx, my):
+                    audio_enabled = not audio_enabled
+                elif rects["sfx_vol"].collidepoint(mx, my):
+                    sfx_volume = round((sfx_volume + 0.15) % 1.05, 2)
+                    if sfx_volume > 1.0: sfx_volume = 0.0
+                    update_volumes()
+                elif rects["bg_vol"].collidepoint(mx, my):
+                    bg_volume = round((bg_volume + 0.02) % 0.12, 2)
+                    update_volumes()
+                elif rects["scale_toggle"].collidepoint(mx, my):
+                    scale_mode = (scale_mode + 1) % len(scales)
+                    update_hit_sounds()
+                elif rects["achievements_btn"].collidepoint(mx, my):
+                    state = "achievements"
+                elif rects["stats_btn"].collidepoint(mx, my):
+                    state = "stats"
+                elif rects["reset_score"].collidepoint(mx, my):
+                    reset_highscores()
+                elif rects["settings_back"].collidepoint(mx, my):
+                    state = "menu"
+
+            elif state == "achievements":
+                if rects["achievements_back"].collidepoint(mx, my):
+                    state = "settings"
+
+            elif state == "stats":
+                if rects["stats_back"].collidepoint(mx, my):
+                    state = "settings"
+
+            elif state == "playing":
+                if rects["pause_btn"].collidepoint(mx, my):
+                    state = "paused"
+                    stop_bg()
+                else:
+                    clicked_col = mx // COL_WIDTH
+                    if not tiles:
+                        if game_mode == "classic":
+                            if has_shield:
+                                has_shield = False
+                                used_shield = True
+                                play_sound(fail_sound)
+                                shake_timer = 12
+                                spawn_floating_text("SHIELD BROKEN!", WIDTH // 2, HEIGHT // 3, color=RED)
+                            else:
+                                play_sound(fail_sound)
+                                combo = 0
+                                shake_timer = 20
+                                end_game()
+                    else:
+                        lowest_tile = max(tiles, key=lambda t: t["y"])
+                        if (clicked_col == lowest_tile["col"] and
+                                lowest_tile["y"] - 20 <= my <= lowest_tile["y"] + TILE_HEIGHT + 20):
+
+                            tx = lowest_tile["col"] * COL_WIDTH + COL_WIDTH // 2
+                            ty = lowest_tile["y"] + TILE_HEIGHT // 2
+
+                            combo += 1
+                            if combo >= 10: unlock_achievement("combo_master")
+                            if combo >= 20: unlock_achievement("fever")
+                            if combo > stats["best_combo"]:
+                                stats["best_combo"] = combo
+
+                            is_gold = lowest_tile.get("golden", False)
+                            if is_gold:
+                                golden_this_run += 1
+                                stats["golden_hit"] += 1
+                                if golden_this_run >= 8:
+                                    unlock_achievement("golden_rush")
+
+                            p_count = 28 if is_gold else (20 if combo >= 10 else 10)
+                            spawn_particles(tx, ty, count=p_count, is_gold=is_gold, big=(combo >= 10 or is_gold))
+
+                            if is_gold:
+                                spawn_floating_text("GOLDEN +3", tx, ty - 28, color=GOLD)
+                            else:
+                                praise = random.choice(["PERFECT!", "GREAT!", "NICE!"]) if combo < 10 else "FEVER!"
+                                spawn_floating_text(praise, tx, ty - 22, color=GOLD if combo >= 10 else WHITE)
+
+                            tiles.remove(lowest_tile)
+
+                            base = 3 if is_gold else 1
+                            points = base + (1 if combo >= 10 else 0)
+                            score += points
+                            stats["tiles_hit"] += 1
+                            save_stats()
+
+                            if score >= 10: unlock_achievement("first_steps")
+                            if score >= 100: unlock_achievement("century_club")
+                            if score >= 300: unlock_achievement("marathon")
+
+                            if score >= 100:
+                                current_tier = 1 + (score - 100) // 50
+                                if current_tier > last_milestone_tier:
+                                    last_milestone_tier = current_tier
+                                    spawn_particles(WIDTH // 2, HEIGHT // 2, count=30, big=True)
+                                    spawn_floating_text("THEME EVOLVED!", WIDTH // 2, HEIGHT // 3, color=GOLD)
+                                    shake_timer = 14
+
+                            speed = DIFF_START_SPEED[difficulty] + score * DIFF_ACCEL[difficulty]
+                            if hit_sounds:
+                                play_sound(hit_sounds[score % len(hit_sounds)])
+                        else:
+                            if game_mode == "classic":
+                                if has_shield:
+                                    has_shield = False
+                                    used_shield = True
+                                    play_sound(fail_sound)
+                                    shake_timer = 12
+                                    spawn_floating_text("SHIELD BROKEN!", WIDTH // 2, HEIGHT // 3, color=RED)
+                                else:
+                                    play_sound(fail_sound)
+                                    combo = 0
+                                    shake_timer = 20
+                                    end_game()
+                            else:
+                                combo = 0
+                                score = max(0, score - 2)
+                                play_sound(fail_sound)
+                                shake_timer = 8
+
+            elif state == "paused":
+                if rects["resume"].collidepoint(mx, my):
+                    state = "playing"
+                    play_bg()
+                elif rects["restart"].collidepoint(mx, my):
+                    start_game()
+                elif rects["home"].collidepoint(mx, my):
+                    state = "menu"
+
+            elif state == "game_over":
+                btn_w, btn_h = int(WIDTH * 0.58), int(HEIGHT * 0.065)
+                cx = WIDTH // 2
+                replay_rect = pygame.Rect(cx - btn_w // 2, int(HEIGHT * 0.52), btn_w, btn_h)
+                home_rect = pygame.Rect(cx - btn_w // 2, int(HEIGHT * 0.62), btn_w, btn_h)
+                if replay_rect.collidepoint(mx, my):
+                    start_game()
+                elif home_rect.collidepoint(mx, my):
+                    state = "menu"
+
+    if state == "playing":
+        for tile in tiles:
+            tile["y"] += speed
+
+        for tile in tiles[:]:
+            if tile["y"] > HEIGHT - 5:
+                tiles.remove(tile)
+                if game_mode == "classic":
+                    if has_shield:
+                        has_shield = False
+                        used_shield = True
+                        play_sound(fail_sound)
+                        shake_timer = 12
+                        spawn_floating_text("SHIELD BROKEN!", WIDTH // 2, HEIGHT // 3, color=RED)
+                    else:
+                        play_sound(fail_sound)
+                        combo = 0
+                        shake_timer = 20
+                        end_game()
+                else:
+                    combo = 0
+                    score = max(0, score - 2)
+                    play_sound(fail_sound)
+                    shake_timer = 6
+
+        spawn_timer += speed
+        if spawn_timer >= TILE_HEIGHT * 0.92:
+            spawn_timer = 0
+            spawn_tile()
+
+    for r in ripples[:]:
+        r["radius"] += 3.2
+        r["alpha"] -= 13
+        if r["alpha"] <= 0 or r["radius"] >= r["max_radius"]:
+            ripples.remove(r)
+
+    for p in particles[:]:
+        p["x"] += p["vx"]
+        p["y"] += p["vy"]
+        p["life"] -= 1
+        p["vy"] += 0.16
+        if p["life"] <= 0:
+            particles.remove(p)
+
+    for ft in floating_texts[:]:
+        ft["y"] += ft["vy"]
+        ft["life"] -= 1
+        if ft["life"] <= 0:
+            floating_texts.remove(ft)
+
+    if state == "menu":
+        draw_menu()
+    elif state == "settings":
+        draw_settings()
+    elif state == "achievements":
+        draw_achievements()
+    elif state == "stats":
+        draw_stats()
+    else:
+        draw_game()
+
+    pygame.display.flip()
+
+pygame.quit()
+sys.exit()
+    
