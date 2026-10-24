@@ -458,7 +458,8 @@ def draw_menu():
     active_hs = highscore if game_mode == "classic" else highscore_ta
     best = small_font.render(f"Best ({game_mode.title()}): {active_hs}", True, GOLD)
     screen.blit(best, (WIDTH // 2 - best.get_width() // 2, HEIGHT * 0.92))
-    def draw_settings():
+
+def draw_settings():
     screen.fill((18, 18, 28))
     title = title_font.render("SETTINGS", True, WHITE)
     screen.blit(title, (WIDTH // 2 - title.get_width() // 2, HEIGHT * 0.04))
@@ -700,7 +701,8 @@ def draw_game():
         shake_timer -= 1
 
     screen.blit(canvas, (shake_x, shake_y))
-    # ========== MAIN LOOP ==========
+
+# ========== MAIN LOOP ==========
 running = True
 while running:
     dt = clock.tick(60) / 1000.0
@@ -957,4 +959,3 @@ while running:
 
 pygame.quit()
 sys.exit()
-    
