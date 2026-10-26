@@ -30,6 +30,27 @@ except Exception as e:
     print(f"Warning: Audio/Mixer failed: {e}")
     AUDIO_AVAILABLE = False
 
+# The phone can open the audio device differently from what was requested
+# (for example 44100 Hz stereo instead of 22050 Hz mono). Every sound is built for
+# the settings the device really uses, so pitch and length stay correct.
+MIX_RATE, MIX_CHANNELS = 22050, 1
+if AUDIO_AVAILABLE:
+    try:
+        _spec = pygame.mixer.get_init()
+        if _spec:
+            MIX_RATE, MIX_CHANNELS = int(_spec[0]), int(_spec[2])
+    except Exception:
+        pass
+print("Audio device:", MIX_RATE, "Hz,", MIX_CHANNELS, "channel(s)")
+
+def to_sound(mono):
+    if MIX_CHANNELS > 1:
+        multi = array.array('h', [0]) * (len(mono) * MIX_CHANNELS)
+        for c in range(MIX_CHANNELS):
+            multi[c::MIX_CHANNELS] = mono
+        mono = multi
+    return pygame.mixer.Sound(buffer=mono)
+
 # ========== AUDIO & GAME MODES ==========
 audio_enabled = True
 sfx_volume = 0.55
@@ -49,7 +70,7 @@ scales = [
 def make_piano_note(frequency=440, duration=0.22, volume=0.5):
     if not AUDIO_AVAILABLE:
         return None
-    sample_rate = 22050
+    sample_rate = MIX_RATE
     n_samples = int(sample_rate * duration)
     buf = array.array('h', [0] * n_samples)
     max_amp = 2**15 - 1
@@ -63,12 +84,12 @@ def make_piano_note(frequency=440, duration=0.22, volume=0.5):
         envelope = math.exp(-11.0 * t)
         value = volume * max_amp * envelope * wave
         buf[i] = int(max(-32768, min(32767, value)))
-    return pygame.mixer.Sound(buffer=buf)
+    return to_sound(buf)
 
 def make_beep(frequency=440, duration=0.09, volume=0.4):
     if not AUDIO_AVAILABLE:
         return None
-    sample_rate = 22050
+    sample_rate = MIX_RATE
     n_samples = int(sample_rate * duration)
     buf = array.array('h', [0] * n_samples)
     max_amp = 2**15 - 1
@@ -81,12 +102,12 @@ def make_beep(frequency=440, duration=0.09, volume=0.4):
             fade = (n_samples - i) / (n_samples * 0.3)
         value = volume * max_amp * fade * math.sin(2 * math.pi * frequency * t)
         buf[i] = int(value)
-    return pygame.mixer.Sound(buffer=buf)
+    return to_sound(buf)
 
 def make_bg_loop(volume=0.15):
     if not AUDIO_AVAILABLE:
         return None
-    sample_rate = 22050
+    sample_rate = MIX_RATE
     duration = 3.0
     n_samples = int(sample_rate * duration)
     buf = array.array('h', [0] * n_samples)
@@ -97,16 +118,223 @@ def make_bg_loop(volume=0.15):
         wave2 = math.sin(2 * math.pi * 130 * t) * 0.4
         value = volume * max_amp * (wave1 + wave2) * 0.7
         buf[i] = int(value)
-    return pygame.mixer.Sound(buffer=buf)
+    return to_sound(buf)
+
+# ========== 20 SOUND PACKS ==========
+SAMPLE_RATE = MIX_RATE
+TAU = 2 * math.pi
+
+def _sin(f, t):
+    return math.sin(TAU * f * t)
+
+def _saw(f, t):
+    return 2.0 * ((f * t) % 1.0) - 1.0
+
+def _sq(f, t):
+    return 1.0 if math.sin(TAU * f * t) >= 0 else -1.0
+
+def _gate(t, d, attack=0.01, release=0.04):
+    return min(1.0, t / attack) * min(1.0, max(0.0, (d - t) / release))
+
+# (name, duration in seconds, wave function(frequency, time, duration))
+sound_packs = [
+    # Same note as the Kivy version: one octave lower, 0.5 s long, slow ring-out
+    ("Soft Piano", 0.5, lambda f, t, d: 1.1 * (_sin(f / 2, t) + 0.4 * _sin(f, t) + 0.2 * _sin(1.5 * f, t)) * math.exp(-5 * t)),
+    ("Piano", 0.22, lambda f, t, d: (_sin(f, t) + 0.4 * _sin(2 * f, t) + 0.2 * _sin(3 * f, t)) * math.exp(-11 * t)),
+    ("E-Piano", 0.25, lambda f, t, d: math.sin(TAU * f * t + 1.6 * math.exp(-7 * t) * _sin(f, t)) * math.exp(-6 * t)),
+    ("Organ", 0.25, lambda f, t, d: (_sin(f, t) + 0.5 * _sin(2 * f, t) + 0.33 * _sin(3 * f, t) + 0.25 * _sin(4 * f, t)) * 0.5 * _gate(t, d)),
+    ("Bell", 0.35, lambda f, t, d: (_sin(f, t) + 0.6 * _sin(2.76 * f, t) + 0.4 * _sin(5.4 * f, t) + 0.25 * _sin(6.9 * f, t)) * 0.5 * math.exp(-7 * t)),
+    ("Music Box", 0.3, lambda f, t, d: (_sin(2 * f, t) + 0.3 * _sin(4 * f, t)) * 0.8 * math.exp(-10 * t)),
+    ("Marimba", 0.25, lambda f, t, d: (_sin(f, t) + 0.5 * _sin(4 * f, t) * math.exp(-30 * t)) * math.exp(-12 * t)),
+    ("Xylophone", 0.2, lambda f, t, d: (_sin(f, t) + 0.5 * _sin(3 * f, t) + 0.3 * _sin(6 * f, t)) * 0.7 * math.exp(-20 * t)),
+    ("Harp", 0.3, lambda f, t, d: _sin(f, t) * math.exp(-8 * t) + 0.5 * _sin(2 * f, t) * math.exp(-12 * t) + 0.3 * _sin(3 * f, t) * math.exp(-16 * t)),
+    ("Guitar", 0.3, lambda f, t, d: 0.8 * sum(_sin(k * f, t) / k * math.exp(-(5 + 2 * k) * t) for k in range(1, 6))),
+    ("Flute", 0.3, lambda f, t, d: (math.sin(TAU * f * t + 0.5 * math.sin(TAU * 5 * t)) + 0.2 * _sin(2 * f, t) + random.uniform(-0.04, 0.04)) * 0.8 * _gate(t, d, 0.04, 0.08)),
+    ("Synth Saw", 0.25, lambda f, t, d: _saw(f, t) * 0.5 * math.exp(-4 * t) * _gate(t, d, 0.005, 0.04)),
+    ("8-Bit", 0.15, lambda f, t, d: _sq(f, t) * 0.45 * _gate(t, d, 0.003, 0.05)),
+    ("Bass", 0.25, lambda f, t, d: (_sin(f / 2, t) + 0.5 * _sin(f, t)) * math.exp(-8 * t)),
+    ("Kalimba", 0.3, lambda f, t, d: _sin(f, t) * math.exp(-9 * t) + 0.25 * _sin(6 * f, t) * math.exp(-35 * t)),
+    ("Glass", 0.35, lambda f, t, d: (_sin(f, t) + 0.5 * _sin(3 * f, t) + 0.3 * _sin(5 * f, t)) * 0.7 * (1 - math.exp(-t * 200)) * math.exp(-7 * t)),
+    ("Vibraphone", 0.35, lambda f, t, d: (_sin(f, t) + 0.3 * _sin(4 * f, t)) * math.exp(-6 * t) * (0.8 + 0.2 * _sin(6, t))),
+    ("Drum", 0.2, lambda f, t, d: _sin(f * 0.4 * (1 + 1.5 * math.exp(-25 * t)), t) * math.exp(-14 * t)),
+    ("Bubble Pop", 0.15, lambda f, t, d: _sin(f * 0.5 * (1 + 6 * t), t) * math.exp(-18 * t)),
+    ("Laser", 0.2, lambda f, t, d: _sin(f * (2.0 - 4 * t), t) * math.exp(-6 * t)),
+    ("Coin", 0.25, lambda f, t, d: _sq(f if t < 0.07 else f * 1.5, t) * 0.4 * math.exp(-4 * t) * _gate(t, d, 0.002, 0.05)),
+]
+
+def make_note(pack_index, frequency, volume=0.5):
+    if not AUDIO_AVAILABLE:
+        return None
+    name, duration, fn = sound_packs[pack_index]
+    n_samples = int(SAMPLE_RATE * duration)
+    buf = array.array('h', [0] * n_samples)
+    max_amp = 2**15 - 1
+    fade_len = 150
+    for i in range(n_samples):
+        t = i / SAMPLE_RATE
+        value = volume * max_amp * 0.7 * fn(frequency, t, duration)
+        left = n_samples - i
+        if left < fade_len:
+            value *= left / fade_len
+        buf[i] = int(max(-32768, min(32767, value)))
+    return to_sound(buf)
+
+def make_fail_sound():
+    """Soft Piano uses the Kivy-style low buzz for misses; every other pack keeps the beep."""
+    if sound_packs[sound_pack][0] != "Soft Piano":
+        return make_beep(frequency=165, duration=0.28, volume=sfx_volume)
+    if not AUDIO_AVAILABLE:
+        return None
+    n_samples = int(SAMPLE_RATE * 0.6)
+    buf = array.array('h', [0] * n_samples)
+    for i in range(n_samples):
+        t = i / SAMPLE_RATE
+        sq = 1.0 if math.sin(TAU * 90 * t) > 0 else -1.0
+        value = sfx_volume * 32767 * 0.8 * sq * math.exp(-3 * t)
+        buf[i] = int(max(-32768, min(32767, value)))
+    return to_sound(buf)
+
+SOUND_FILE = os.path.join(STORAGE, "piano_sound_pack.txt")
+
+def load_sound_pack():
+    try:
+        if os.path.exists(SOUND_FILE):
+            with open(SOUND_FILE, "r") as f:
+                v = int(f.read().strip())
+                if 0 <= v < len(sound_packs):
+                    return v
+    except:
+        pass
+    return 0
+
+def save_sound_pack(v):
+    try:
+        with open(SOUND_FILE, "w") as f:
+            f.write(str(v))
+    except Exception as e:
+        print("Save sound pack error:", e)
+
+sound_pack = load_sound_pack()
+
+# ========== MELODIES (each correct tap plays the next note of a song) ==========
+_SEMI = {"C": 0, "C#": 1, "D": 2, "D#": 3, "E": 4, "F": 5,
+         "F#": 6, "G": 7, "G#": 8, "A": 9, "A#": 10, "B": 11}
+
+def note_freq(name):
+    # Songs are written an octave low; this lifts them into the same range as the scales
+    letter, octave = name[:-1], int(name[-1])
+    midi = 12 * (octave + 2) + _SEMI[letter]
+    return 440.0 * 2 ** ((midi - 69) / 12)
+
+songs = [
+    ("Twinkle Twinkle", "C4 C4 G4 G4 A4 A4 G4 F4 F4 E4 E4 D4 D4 C4 G4 G4 F4 F4 E4 E4 D4 G4 G4 F4 F4 E4 E4 D4 C4 C4 G4 G4 A4 A4 G4 F4 F4 E4 E4 D4 D4 C4"),
+    ("Birthday", "G4 G4 A4 G4 C5 B4 G4 G4 A4 G4 D5 C5 G4 G4 G5 E5 C5 B4 A4 F5 F5 E5 C5 D5 C5"),
+    ("Jingle Bells", "E4 E4 E4 E4 E4 E4 E4 G4 C4 D4 E4 F4 F4 F4 F4 F4 E4 E4 E4 E4 E4 D4 D4 E4 D4 G4"),
+    ("Ode to Joy", "E4 E4 F4 G4 G4 F4 E4 D4 C4 C4 D4 E4 E4 D4 D4 E4 E4 F4 G4 G4 F4 E4 D4 C4 C4 D4 E4 D4 C4 C4"),
+    ("Mary's Lamb", "E4 D4 C4 D4 E4 E4 E4 D4 D4 D4 E4 G4 G4 E4 D4 C4 D4 E4 E4 E4 E4 D4 D4 E4 D4 C4"),
+    ("Row Row Row", "C4 C4 C4 D4 E4 E4 D4 E4 F4 G4 C5 C5 C5 G4 G4 G4 E4 E4 E4 C4 C4 C4 G4 F4 E4 D4 C4"),
+    ("London Bridge", "G4 A4 G4 F4 E4 F4 G4 D4 E4 F4 E4 F4 G4 G4 A4 G4 F4 E4 F4 G4 D4 G4 E4 C4"),
+    ("Frere Jacques", "C4 D4 E4 C4 C4 D4 E4 C4 E4 F4 G4 E4 F4 G4 G4 A4 G4 F4 E4 C4 G4 A4 G4 F4 E4 C4 C4 G3 C4 C4 G3 C4"),
+    ("Hot Cross Buns", "E4 D4 C4 E4 D4 C4 C4 C4 C4 C4 D4 D4 D4 D4 E4 D4 C4"),
+    ("Old MacDonald", "G4 G4 G4 D4 E4 E4 D4 B4 B4 A4 A4 G4"),
+    ("Silent Night", "G4 A4 G4 E4 G4 A4 G4 E4 D5 D5 B4 C5 C5 G4 A4 A4 C5 B4 A4 G4 A4 G4 E4 D5 D5 F5 D5 B4 C5 E5 C5 G4 E4 G4 F4 D4 C4"),
+    ("Fur Elise", "E5 D#5 E5 D#5 E5 B4 D5 C5 A4 C4 E4 A4 B4 E4 G#4 B4 C5"),
+]
+melody_names = ["Scale", "Random"] + [s[0] for s in songs]   # 0 = Scale, 1 = Random, 2+ = songs
+
+MELODY_FILE = os.path.join(STORAGE, "piano_melody.txt")
+
+def load_melody():
+    try:
+        if os.path.exists(MELODY_FILE):
+            with open(MELODY_FILE, "r") as f:
+                v = int(f.read().strip())
+                if 0 <= v < len(melody_names):
+                    return v
+    except:
+        pass
+    return 2   # Twinkle Twinkle
+
+def save_melody(v):
+    try:
+        with open(MELODY_FILE, "w") as f:
+            f.write(str(v))
+    except Exception as e:
+        print("Save melody error:", e)
+
+melody_index = load_melody()
+melody_seq = []
+note_index = 0
+
+def fit_text(font_obj, text, color, max_w):
+    surf = font_obj.render(text, True, color)
+    if surf.get_width() > max_w:
+        k = max_w / surf.get_width()
+        surf = pygame.transform.smoothscale(surf, (max(1, int(surf.get_width() * k)), max(1, int(surf.get_height() * k))))
+    return surf
+
+def update_melody_sounds():
+    global melody_seq
+    melody_seq = []
+    if melody_index < 2:
+        return
+    notes = songs[melody_index - 2][1].split()
+    cache = {}
+    for n in notes:
+        if n not in cache:
+            cache[n] = make_note(sound_pack, note_freq(n), volume=sfx_volume)
+    melody_seq = [cache[n] for n in notes]
 
 hit_sounds = []
 def update_hit_sounds():
     global hit_sounds
     freqs = scales[scale_mode]
-    hit_sounds = [make_piano_note(frequency=freq, duration=0.22, volume=sfx_volume) for freq in freqs]
+    hit_sounds = [make_note(sound_pack, freq, volume=sfx_volume) for freq in freqs]
+    update_melody_sounds()
+
+def get_hit_sound():
+    """Returns the sound for the next correct tap, based on the chosen melody."""
+    global note_index
+    snd = None
+    if melody_index == 0 and hit_sounds:
+        snd = hit_sounds[note_index % len(hit_sounds)]
+    elif melody_index == 1 and hit_sounds:
+        snd = random.choice(hit_sounds)
+    elif melody_seq:
+        snd = melody_seq[note_index % len(melody_seq)]
+    note_index += 1
+    return snd
+
+def preview_melody():
+    """Plays the first two notes of the chosen melody."""
+    if not (AUDIO_AVAILABLE and audio_enabled):
+        return
+    if melody_index == 0:
+        seq = hit_sounds[:2]
+    elif melody_index == 1:
+        seq = random.sample(hit_sounds, 2) if len(hit_sounds) >= 2 else []
+    else:
+        seq = melody_seq[:2]
+    seq = [s for s in seq if s is not None]
+    if not seq:
+        return
+    for s in seq:
+        s.set_volume(sfx_volume)
+    ch = seq[0].play()
+    if ch is not None and len(seq) > 1:
+        ch.queue(seq[1])
+
+def preview_sound():
+    """Plays a short two-note preview of the selected sound pack."""
+    if AUDIO_AVAILABLE and audio_enabled and len(hit_sounds) >= 5 and hit_sounds[0] is not None:
+        hit_sounds[0].set_volume(sfx_volume)
+        hit_sounds[4].set_volume(sfx_volume)
+        ch = hit_sounds[0].play()
+        if ch is not None:
+            ch.queue(hit_sounds[4])
 
 update_hit_sounds()
-fail_sound = make_beep(frequency=165, duration=0.28, volume=sfx_volume)
+fail_sound = make_fail_sound()
 bg_tone = make_bg_loop(volume=bg_volume)
 
 def play_sound(snd):
@@ -126,7 +354,7 @@ def stop_bg():
 def update_volumes():
     global fail_sound, bg_tone
     update_hit_sounds()
-    fail_sound = make_beep(frequency=165, duration=0.28, volume=sfx_volume)
+    fail_sound = make_fail_sound()
     bg_tone = make_bg_loop(volume=bg_volume)
 
 # ========== FILES (Android-safe) ==========
@@ -350,7 +578,7 @@ def end_game():
 def start_game():
     global tiles, score, combo, speed, state, particles, floating_texts, ripples
     global shake_timer, last_milestone_tier, time_left, has_shield, spawn_timer
-    global golden_this_run, used_shield, time_survived
+    global golden_this_run, used_shield, time_survived, note_index
 
     tiles = []
     score = 0
@@ -367,6 +595,7 @@ def start_game():
     golden_this_run = 0
     used_shield = False
     time_survived = 0.0
+    note_index = 0
 
     stats["games_played"] += 1
     save_stats()
@@ -404,10 +633,14 @@ def get_button_rects():
         "sfx_vol": pygame.Rect(cx - btn_w // 2, start_y + gap, btn_w, btn_h),
         "bg_vol": pygame.Rect(cx - btn_w // 2, start_y + gap * 2, btn_w, btn_h),
         "scale_toggle": pygame.Rect(cx - btn_w // 2, start_y + gap * 3, btn_w, btn_h),
-        "achievements_btn": pygame.Rect(cx - btn_w // 2, start_y + gap * 4, btn_w, btn_h),
-        "stats_btn": pygame.Rect(cx - btn_w // 2, start_y + gap * 5, btn_w, btn_h),
-        "reset_score": pygame.Rect(cx - btn_w // 2, start_y + gap * 6, btn_w, btn_h),
-        "settings_back": pygame.Rect(cx - btn_w // 2, start_y + gap * 7, btn_w, btn_h),
+        "sound_btn": pygame.Rect(cx - btn_w // 2, start_y + gap * 4, btn_w, btn_h),
+        "melody_btn": pygame.Rect(cx - btn_w // 2, start_y + gap * 5, btn_w, btn_h),
+        "achievements_btn": pygame.Rect(cx - btn_w // 2, start_y + gap * 6, btn_w, btn_h),
+        "stats_btn": pygame.Rect(cx - btn_w // 2, start_y + gap * 7, btn_w, btn_h),
+        "reset_score": pygame.Rect(cx - btn_w // 2, start_y + gap * 8, btn_w, btn_h),
+        "settings_back": pygame.Rect(cx - btn_w // 2, start_y + gap * 9, btn_w, btn_h),
+        "sounds_back": pygame.Rect(cx - btn_w // 2, int(HEIGHT * 0.88), btn_w, btn_h),
+        "melodies_back": pygame.Rect(cx - btn_w // 2, int(HEIGHT * 0.88), btn_w, btn_h),
         "achievements_back": pygame.Rect(cx - btn_w // 2, int(HEIGHT * 0.88), btn_w, btn_h),
         "stats_back": pygame.Rect(cx - btn_w // 2, int(HEIGHT * 0.88), btn_w, btn_h)
     }
@@ -491,6 +724,18 @@ def draw_settings():
     screen.blit(scale_text, (rects["scale_toggle"].centerx - scale_text.get_width() // 2,
                              rects["scale_toggle"].centery - scale_text.get_height() // 2))
 
+    pygame.draw.rect(screen, (200, 120, 60), rects["sound_btn"], border_radius=14)
+    pygame.draw.rect(screen, WHITE, rects["sound_btn"], 2, border_radius=14)
+    pack_text = fit_text(small_font, f"Sound Pack: {sound_packs[sound_pack][0]}", WHITE, rects["sound_btn"].width - 24)
+    screen.blit(pack_text, (rects["sound_btn"].centerx - pack_text.get_width() // 2,
+                            rects["sound_btn"].centery - pack_text.get_height() // 2))
+
+    pygame.draw.rect(screen, (60, 160, 160), rects["melody_btn"], border_radius=14)
+    pygame.draw.rect(screen, WHITE, rects["melody_btn"], 2, border_radius=14)
+    mel_text = fit_text(small_font, f"Melody: {melody_names[melody_index]}", WHITE, rects["melody_btn"].width - 24)
+    screen.blit(mel_text, (rects["melody_btn"].centerx - mel_text.get_width() // 2,
+                           rects["melody_btn"].centery - mel_text.get_height() // 2))
+
     pygame.draw.rect(screen, (150, 80, 200), rects["achievements_btn"], border_radius=14)
     pygame.draw.rect(screen, WHITE, rects["achievements_btn"], 2, border_radius=14)
     ach_text = small_font.render("Achievements", True, WHITE)
@@ -514,6 +759,73 @@ def draw_settings():
     back_text = small_font.render("Back", True, WHITE)
     screen.blit(back_text, (rects["settings_back"].centerx - back_text.get_width() // 2,
                             rects["settings_back"].centery - back_text.get_height() // 2))
+
+def get_melody_rects():
+    cols = 2
+    left = int(WIDTH * 0.06)
+    col_w = int(WIDTH * 0.43)
+    gap_x = int(WIDTH * 0.02)
+    top = int(HEIGHT * 0.11)
+    box_h = int(HEIGHT * 0.088)
+    gap_y = int(HEIGHT * 0.017)
+    result = []
+    for i in range(len(melody_names)):
+        r, c = i // cols, i % cols
+        result.append(pygame.Rect(left + c * (col_w + gap_x), top + r * (box_h + gap_y), col_w, box_h))
+    return result
+
+def draw_melodies():
+    screen.fill((18, 18, 28))
+    title = title_font.render("CHOOSE MELODY", True, GOLD)
+    screen.blit(title, (WIDTH // 2 - title.get_width() // 2, HEIGHT * 0.03))
+
+    for i, rect in enumerate(get_melody_rects()):
+        selected = (i == melody_index)
+        pygame.draw.rect(screen, (50, 150, 90) if selected else (45, 45, 65), rect, border_radius=12)
+        pygame.draw.rect(screen, GOLD if selected else (100, 100, 130), rect, 3 if selected else 2, border_radius=12)
+        label = fit_text(small_font, melody_names[i], WHITE, rect.width - 16)
+        screen.blit(label, (rect.centerx - label.get_width() // 2, rect.centery - label.get_height() // 2))
+
+    rects = get_button_rects()
+    pygame.draw.rect(screen, (70, 70, 90), rects["melodies_back"], border_radius=14)
+    pygame.draw.rect(screen, WHITE, rects["melodies_back"], 2, border_radius=14)
+    back_text = medium_font.render("Back", True, WHITE)
+    screen.blit(back_text, (rects["melodies_back"].centerx - back_text.get_width() // 2,
+                            rects["melodies_back"].centery - back_text.get_height() // 2))
+
+def get_sound_rects():
+    cols = 2
+    left = int(WIDTH * 0.06)
+    col_w = int(WIDTH * 0.43)
+    gap_x = int(WIDTH * 0.02)
+    top = int(HEIGHT * 0.11)
+    rows = (len(sound_packs) + cols - 1) // cols
+    gap_y = int(HEIGHT * 0.010)
+    box_h = int((HEIGHT * 0.74 - (rows - 1) * gap_y) / rows)
+    result = []
+    for i in range(len(sound_packs)):
+        r, c = i // cols, i % cols
+        result.append(pygame.Rect(left + c * (col_w + gap_x), top + r * (box_h + gap_y), col_w, box_h))
+    return result
+
+def draw_sounds():
+    screen.fill((18, 18, 28))
+    title = title_font.render("CHOOSE SOUND", True, GOLD)
+    screen.blit(title, (WIDTH // 2 - title.get_width() // 2, HEIGHT * 0.03))
+
+    for i, rect in enumerate(get_sound_rects()):
+        selected = (i == sound_pack)
+        pygame.draw.rect(screen, (50, 150, 90) if selected else (45, 45, 65), rect, border_radius=12)
+        pygame.draw.rect(screen, GOLD if selected else (100, 100, 130), rect, 3 if selected else 2, border_radius=12)
+        label = fit_text(small_font, f"{i + 1}. {sound_packs[i][0]}", WHITE, rect.width - 16)
+        screen.blit(label, (rect.centerx - label.get_width() // 2, rect.centery - label.get_height() // 2))
+
+    rects = get_button_rects()
+    pygame.draw.rect(screen, (70, 70, 90), rects["sounds_back"], border_radius=14)
+    pygame.draw.rect(screen, WHITE, rects["sounds_back"], 2, border_radius=14)
+    back_text = medium_font.render("Back", True, WHITE)
+    screen.blit(back_text, (rects["sounds_back"].centerx - back_text.get_width() // 2,
+                            rects["sounds_back"].centery - back_text.get_height() // 2))
 
 def draw_achievements():
     screen.fill((18, 18, 28))
@@ -723,6 +1035,8 @@ while running:
             elif state == "paused":
                 state = "playing"
                 play_bg()
+            elif state in ["sounds", "melodies"]:
+                state = "settings"
             elif state in ["settings", "achievements", "stats"]:
                 state = "menu"
             else:
@@ -767,6 +1081,10 @@ while running:
                 elif rects["scale_toggle"].collidepoint(mx, my):
                     scale_mode = (scale_mode + 1) % len(scales)
                     update_hit_sounds()
+                elif rects["sound_btn"].collidepoint(mx, my):
+                    state = "sounds"
+                elif rects["melody_btn"].collidepoint(mx, my):
+                    state = "melodies"
                 elif rects["achievements_btn"].collidepoint(mx, my):
                     state = "achievements"
                 elif rects["stats_btn"].collidepoint(mx, my):
@@ -775,6 +1093,32 @@ while running:
                     reset_highscores()
                 elif rects["settings_back"].collidepoint(mx, my):
                     state = "menu"
+
+            elif state == "melodies":
+                if rects["melodies_back"].collidepoint(mx, my):
+                    state = "settings"
+                else:
+                    for i, r in enumerate(get_melody_rects()):
+                        if r.collidepoint(mx, my):
+                            melody_index = i
+                            save_melody(i)
+                            note_index = 0
+                            update_melody_sounds()
+                            preview_melody()
+                            break
+
+            elif state == "sounds":
+                if rects["sounds_back"].collidepoint(mx, my):
+                    state = "settings"
+                else:
+                    for i, r in enumerate(get_sound_rects()):
+                        if r.collidepoint(mx, my):
+                            sound_pack = i
+                            save_sound_pack(i)
+                            update_hit_sounds()
+                            fail_sound = make_fail_sound()
+                            preview_sound()
+                            break
 
             elif state == "achievements":
                 if rects["achievements_back"].collidepoint(mx, my):
@@ -854,8 +1198,7 @@ while running:
                                     shake_timer = 14
 
                             speed = DIFF_START_SPEED[difficulty] + score * DIFF_ACCEL[difficulty]
-                            if hit_sounds:
-                                play_sound(hit_sounds[score % len(hit_sounds)])
+                            play_sound(get_hit_sound())
                         else:
                             if game_mode == "classic":
                                 if has_shield:
@@ -948,6 +1291,10 @@ while running:
         draw_menu()
     elif state == "settings":
         draw_settings()
+    elif state == "sounds":
+        draw_sounds()
+    elif state == "melodies":
+        draw_melodies()
     elif state == "achievements":
         draw_achievements()
     elif state == "stats":
