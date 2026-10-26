@@ -1,1 +1,35 @@
+name: Build Signed AAB
 
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Decode Keystore
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android.jks
+
+      - name: Build Release AAB
+        uses: digreatbrian/buildozer-action@v2
+        with:
+          python-version: "3.11"
+          buildozer-cmd: buildozer -v android release
+        env:
+          P4A_RELEASE_KEYSTORE: ${{ github.workspace }}/android.jks
+          P4A_RELEASE_KEYSTORE_PASSWD: ${{ secrets.KEYSTORE_PASSWORD }}
+          P4A_RELEASE_KEYALIAS: ${{ secrets.KEY_ALIAS }}
+          P4A_RELEASE_KEYALIAS_PASSWD: ${{ secrets.KEY_PASSWORD }}
+
+      - name: Upload Signed AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: pianotiles-release-aab
+          path: bin/*.aab
+          retention-days: 30
